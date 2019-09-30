@@ -118,6 +118,12 @@ int ad916x_register_write_tbl(ad916x_handle_t *h,
 #define AD916x_REG_ACC_DELTA3                     0x12D
 #define AD916x_REG_ACC_DELTA4                     0x12E
 #define AD916x_REG_ACC_DELTA5                     0x12F
+#define AD916x_REG_TEMP_SENS_LSB		  0x132
+#define AD916x_REG_TEMP_SENS_MSB		  0x133
+#define AD916x_REG_TEMP_UPDATE			  0x134
+#define AD916x_TEMP_UPDATE			  0x01
+#define AD916x_REG_TEMP_CTRL			  0x135
+#define AD916x_TEMP_ENABLE			  0xA1
 #define AD916x_REG_PRBS                           0x14B
 #define AD916x_REG_PRBS_ERROR_I                   0x14C
 #define AD916x_REG_PRBS_ERROR_Q                   0x14D

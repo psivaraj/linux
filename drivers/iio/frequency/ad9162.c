@@ -322,7 +322,7 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 	struct ad9162_state *st = to_ad916x_state(conv);
 	unsigned int tmp;
 	int ret;
-	u16 amplitude_raw;
+	u16 amplitude_raw, temperature = 0;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -334,24 +334,43 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		if (!conv->temp_calib_code)
-			return -EINVAL;
+			return -ENOTSUPP;
 
-		tmp = ad9162_get_temperature_code(conv);
-
-		*val = ((tmp - conv->temp_calib_code) * 77
-			+ conv->temp_calib * 10 + 10000) / 10;
-
-		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&st->lock);
-		ret = ad916x_dc_test_get_mode(&st->dac_h, &amplitude_raw,
-					      &tmp);
+		ret = ad916x_temperature_read_raw(&st->dac_h, &temperature);
 		mutex_unlock(&st->lock);
+
 		if (ret)
 			return ret;
 
-		*val = amplitude_raw;
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_RAW:
+		switch (chan->type) {
+		case IIO_ALTVOLTAGE:
+			mutex_lock(&st->lock); 
+			ret = ad916x_dc_test_get_mode(&st->dac_h,
+						      &amplitude_raw,
+						      &tmp);
+			mutex_unlock(&st->lock);
+
+			if (ret)
+				return ret;
+
+			*val = amplitude_raw;
+			return IIO_VAL_INT;
+		case IIO_TEMP:
+			mutex_lock(&st->lock);
+			ret = ad916x_temperature_read_raw(&st->dac_h, &temperature);
+			mutex_unlock(&st->lock); 
+
+			if (ret)
+				return ret;
+
+			return IIO_VAL_INT; 
+		default:
+			return -EINVAL;
+		}
+		
 	}
 	return -EINVAL;
 }

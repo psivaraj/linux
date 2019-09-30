@@ -663,3 +663,88 @@ ADI_API int ad916x_get_revision(ad916x_handle_t *h, uint8_t *rev_major,
 
 	return err;
 }
+
+ADI_API int ad916x_temperature_read_raw(ad916x_handle_t *h, uint16_t *value)
+{
+	int ret;
+	uint8_t _val_lsb = 0, _val_msb = 0;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	/* update the sensor with a new value */
+	ret = ad916x_register_write(h, AD916x_REG_TEMP_UPDATE,
+				    AD916x_TEMP_UPDATE);
+
+	if (ret)
+		return API_ERROR_INVALID_XFER_PTR;
+
+	ret = ad916x_register_read(h, AD916x_REG_TEMP_SENS_LSB, &_val_lsb);
+	if (ret)
+		return API_ERROR_INVALID_XFER_PTR;
+
+	ret = ad916x_register_read(h, AD916x_REG_TEMP_SENS_MSB, &_val_msb);
+	if (ret)
+		return API_ERROR_INVALID_XFER_PTR;
+
+	*value = (_val_msb << 8) | _val_lsb;
+
+	return API_ERROR_OK;
+}
+
+ADI_API int ad916x_temperature_read(ad916x_handle_t *h, const int tref,
+				    const uint32_t code_ref, int *val)
+{
+	int ret;
+	uint16_t value;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	ret = ad916x_temperature_read_raw(h, &value);
+	if (ret)
+		return ret;
+
+	*val = (tref + (h->temp_slope * (value - code_ref) / 1000));
+
+	return API_ERROR_OK; 
+}
+
+ADI_API int ad916x_temperature_calibrate(ad916x_handle_t *h, const int tref)
+{
+	int ret;
+	uint16_t value;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	ret = ad916x_temperature_read_raw(h, &value);
+	if (ret)
+		return ret;
+
+	ad916x_temperature_slop_calc(h, value, tref);
+
+	return API_ERROR_OK;
+}
+
+ADI_API void ad916x_temperature_slop_calc(ad916x_handle_t *h,
+					  const uint32_t code_ref,
+					  const int tref)
+{
+	h->temp_slope = ((tref + 190) * 1000 / code_ref);
+}
+
+ADI_API int ad916x_temperature_sensor_enable(ad916x_handle_t *h)
+{
+	int ret;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	ret = ad916x_register_write(h, AD916x_REG_TEMP_CTRL,
+				    AD916x_TEMP_ENABLE);
+	if (ret)
+		return API_ERROR_INVALID_XFER_PTR;
+
+	return API_ERROR_OK;
+}

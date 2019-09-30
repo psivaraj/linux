@@ -114,6 +114,7 @@ typedef struct {
 	reset_pin_ctrl_t reset_pin_ctrl; /**< Function Point to HAL RESETB Pin Ctrl Function*/
 	hw_open_t hw_open;      /**< Function Pointer to HAL initialization function*/
 	hw_close_t hw_close;    /**< Function Pointer to HAL de-initialization function*/
+	uint32_t temp_slope;	/**< Slope of the band gap temperature sensor*/
 }ad916x_handle_t;
 
 /**
@@ -1141,4 +1142,46 @@ ADI_API int ad916x_register_read(ad916x_handle_t *h,
 ADI_API int ad916x_get_revision(ad916x_handle_t *h, uint8_t *rev_major,
 								uint8_t *rev_minor, uint8_t *rev_rc);
 
+/**
+ * \brief Read temperature from the band gap sensor
+ *
+ * \param h Pointer to the AD916x device reference
+ * \param value On success holds the raw temperature value
+ *  
+ * \retval API_ERROR_OK API Completed Successfully
+ * \retval API_ERROR_INVALID_XFER_PTR SPI Access Failed
+ * \retval API_ERROR_INVALID_HANDLE_PTR handle pointer parameter
+ *         is invalid
+ */
+ADI_API int ad916x_temperature_read_raw(ad916x_handle_t *h, uint16_t *value);
+/**
+ * 
+ * 
+ * 
+ * 
+ */
+ADI_API void ad916x_temperature_slop_calc(ad916x_handle_t *h,
+					  const uint32_t code_ref,
+					  const int tref);
+/**
+ * 
+ */
+ADI_API int ad916x_temperature_calibrate(ad916x_handle_t *h, const int tref);
+/**
+ * 
+ * 
+ */
+ADI_API int ad916x_temperature_read(ad916x_handle_t *h, const int tref,
+				    const uint32_t code_ref, int *val);
+/**
+ * \brief Enable band gap temperature sensor
+ *
+ * \param h Pointer to the AD916x device reference
+ *
+ * \retval API_ERROR_OK API Completed Successfully
+ * \retval API_ERROR_INVALID_XFER_PTR SPI Access Failed
+ * \retval API_ERROR_INVALID_HANDLE_PTR handle pointer parameter
+ *         is invalid
+ */
+ADI_API int ad916x_temperature_sensor_enable(ad916x_handle_t *h);
 #endif /* !__AD916XAPI_H__ */
