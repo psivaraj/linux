@@ -1155,25 +1155,6 @@ ADI_API int ad916x_get_revision(ad916x_handle_t *h, uint8_t *rev_major,
  */
 ADI_API int ad916x_temperature_read_raw(ad916x_handle_t *h, uint16_t *value);
 /**
- * 
- * 
- * 
- * 
- */
-ADI_API void ad916x_temperature_slop_calc(ad916x_handle_t *h,
-					  const uint32_t code_ref,
-					  const int tref);
-/**
- * 
- */
-ADI_API int ad916x_temperature_calibrate(ad916x_handle_t *h, const int tref);
-/**
- * 
- * 
- */
-ADI_API int ad916x_temperature_read(ad916x_handle_t *h, const int tref,
-				    const uint32_t code_ref, int *val);
-/**
  * \brief Enable band gap temperature sensor
  *
  * \param h Pointer to the AD916x device reference

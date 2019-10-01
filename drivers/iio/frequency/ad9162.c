@@ -30,7 +30,7 @@
 
 #define to_ad916x_state(__conv)	\
 	container_of(__conv, struct ad9162_state, conv)
-
+#define ad916x_temp_slope(tref, code)	((((tref) + 190) * 1000) / (code))
 #define AD916X_TEST_WORD_MAX	0x7FFF
 
 enum ad916x_variant {
@@ -343,6 +343,9 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
+		*val = (conv->temp_calib + (conv->temp_slope *
+				(temperature - conv->temp_calib_code) / 1000));
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		switch (chan->type) {
@@ -360,12 +363,14 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 			return IIO_VAL_INT;
 		case IIO_TEMP:
 			mutex_lock(&st->lock);
-			ret = ad916x_temperature_read_raw(&st->dac_h, &temperature);
+			ret = ad916x_temperature_read_raw(&st->dac_h,
+							  &temperature);
 			mutex_unlock(&st->lock); 
 
 			if (ret)
 				return ret;
 
+			*val = temperature;
 			return IIO_VAL_INT; 
 		default:
 			return -EINVAL;
@@ -382,6 +387,7 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9162_state *st = to_ad916x_state(conv);
 	int ret;
+	u16 temperature;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
@@ -392,9 +398,14 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 		 * Writing in_temp0_input with the device temperature in milli
 		 * degrees Celsius triggers the calibration.
 		 */
-		conv->temp_calib_code = ad9162_get_temperature_code(conv);
+		ret = ad916x_temperature_read_raw(&st->dac_h, &temperature);
+		if (ret)
+			return ret;
+
+		conv->temp_calib_code = temperature;
 		conv->temp_calib = val;
-		break;
+		conv->temp_slope = ad916x_temp_slope(val, temperature);
+		return 0;
 	case IIO_CHAN_INFO_RAW:
 		if (val > AD916X_TEST_WORD_MAX || val < 0)
 			return -EINVAL;
@@ -640,17 +651,21 @@ static const struct iio_chan_spec_ext_info ad916x_ext_info[] = {
 	{},
 };
 
-#define AD916x_CHAN(index) { \
-	.type = IIO_ALTVOLTAGE,	\
+#define AD916x_CHAN(index, _type, _mask, _mask_all, _out, _ext_info) { \
+	.type = _type,	\
 	.indexed = 1, \
 	.channel = index, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
-	.output = 1, \
-	.ext_info = ad916x_ext_info, \
+	.info_mask_separate = _mask, \
+	.info_mask_shared_by_all =_mask_all, \
+	.output = _out, \
+	.ext_info = _ext_info, \
 }
 
 static const struct iio_chan_spec ad916x_chann_spec[] = {
-	AD916x_CHAN(0),
+	AD916x_CHAN(0, IIO_ALTVOLTAGE, BIT(IIO_CHAN_INFO_RAW), 0, 1,
+		    ad916x_ext_info),
+	AD916x_CHAN(0, IIO_TEMP, 0, BIT(IIO_CHAN_INFO_PROCESSED) |
+		    BIT(IIO_CHAN_INFO_RAW), 1, NULL),
 };
 
 static struct ad916x_chip_info ad916x_info[] = {
@@ -674,6 +689,33 @@ static void ad9162_clks_disable(void *data)
 	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++)
 		if (conv->clk[i])
 			clk_disable_unprepare(conv->clk[i]);
+}
+
+static void ad916x_parse_dt(struct ad9162_state *st)
+{
+	struct spi_device *spi = st->conv.spi;
+	bool spi3wire;
+	
+	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable")) 
+		spi3wire = true;
+
+	st->dac_h.sdo = ((spi->mode & SPI_3WIRE) || spi3wire) ? SPI_SDIO :
+			SPI_SDO;
+
+	if (device_property_read_bool(&spi->dev,
+				      "adi,temperature-sensor-enable")) {
+		u32 temp_cal[2];
+
+		if (device_property_read_u32_array(&spi->dev,
+					"adi,temperature-sensor-calib",
+					temp_cal, ARRAY_SIZE(temp_cal)))
+		    return;
+
+		st->conv.temp_calib = temp_cal[0];
+		st->conv.temp_calib_code = temp_cal[1];
+		st->conv.temp_slope = ad916x_temp_slope(temp_cal[0],
+							temp_cal[1]);
+	}
 }
 
 static int ad916x_standalone_probe(struct ad9162_state *st)
@@ -714,7 +756,6 @@ static int ad9162_probe(struct spi_device *spi)
 	struct cf_axi_converter *conv;
 	struct ad9162_state *st;
 	int ret;
-	bool spi3wire = false;
 
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
@@ -749,12 +790,9 @@ static int ad9162_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable"))
-		spi3wire = true;
+	ad916x_parse_dt(st);
 
 	st->dac_h.user_data = st->map;
-	st->dac_h.sdo = ((spi->mode & SPI_3WIRE) || spi3wire) ? SPI_SDIO :
-			SPI_SDO;
 	st->dac_h.dev_xfer = spi_xfer_dummy;
 	st->dac_h.delay_us = delay_us;
 	st->dac_h.event_handler = NULL;

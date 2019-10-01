@@ -692,48 +692,6 @@ ADI_API int ad916x_temperature_read_raw(ad916x_handle_t *h, uint16_t *value)
 	return API_ERROR_OK;
 }
 
-ADI_API int ad916x_temperature_read(ad916x_handle_t *h, const int tref,
-				    const uint32_t code_ref, int *val)
-{
-	int ret;
-	uint16_t value;
-
-	if (!h)
-		return API_ERROR_INVALID_HANDLE_PTR;
-
-	ret = ad916x_temperature_read_raw(h, &value);
-	if (ret)
-		return ret;
-
-	*val = (tref + (h->temp_slope * (value - code_ref) / 1000));
-
-	return API_ERROR_OK; 
-}
-
-ADI_API int ad916x_temperature_calibrate(ad916x_handle_t *h, const int tref)
-{
-	int ret;
-	uint16_t value;
-
-	if (!h)
-		return API_ERROR_INVALID_HANDLE_PTR;
-
-	ret = ad916x_temperature_read_raw(h, &value);
-	if (ret)
-		return ret;
-
-	ad916x_temperature_slop_calc(h, value, tref);
-
-	return API_ERROR_OK;
-}
-
-ADI_API void ad916x_temperature_slop_calc(ad916x_handle_t *h,
-					  const uint32_t code_ref,
-					  const int tref)
-{
-	h->temp_slope = ((tref + 190) * 1000 / code_ref);
-}
-
 ADI_API int ad916x_temperature_sensor_enable(ad916x_handle_t *h)
 {
 	int ret;
