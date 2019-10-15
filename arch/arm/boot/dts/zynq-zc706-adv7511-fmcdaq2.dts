@@ -123,6 +123,7 @@
 
 		jesd204-device;
 		#jesd204-cells = <0>;
+		jesd204-inputs = <&axi_ad9680_adxcvr>;
 	};
 
 	axi_ad9680_adxcvr: axi-adxcvr-rx@44a50000 {
@@ -139,6 +140,10 @@
 		adi,out-clk-select = <4>;
 		adi,use-lpm-enable;
 		adi,use-cpll-enable;
+
+		jesd204-device;
+		#jesd204-cells = <0>;
+		jesd204-inputs = <&clk0_ad9523>;
 	};
 
 	axi_ad9144_adxcvr: axi-adxcvr-tx@44a60000 {
