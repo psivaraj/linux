@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Ettus Research E310
+ * Link: https://www.ettus.com/all-products/e310/
+ *
+ * hdl_project: <>
+ * board_revision: <>
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 
 /include/ "zynq-m2k.dtsi"
